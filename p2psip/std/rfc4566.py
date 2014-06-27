@@ -74,6 +74,7 @@ class SDP(attrs):
             if value:
                 self.media, self.port, self.proto, rest = value.split(' ', 3)
                 self.port = int(self.port)
+                self.direction = 'sendrecv'
                 self.fmt = []
                 for f in rest.split(' '):
                     a = attrs()
@@ -85,8 +86,11 @@ class SDP(attrs):
                 self.port  = int(kwargs.get('port', 0))
                 self.proto = kwargs.get('proto', 'RTP/AVP')
                 self.fmt   = kwargs.get('fmt', [])
+                self.direction = kwargs.get('direction', 'sendrecv')
         def __repr__(self):
             result = self.media + ' ' + str(self.port) + ' ' + self.proto + ' ' + ' '.join(map(lambda x: str(x.pt), self.fmt))
+            if self.direction != 'sendrecv':
+                result += '\r\n' + 'a=' + str(self.direction)
             for k in filter(lambda x: x in self, 'icbka'): # order is important
                 if k not in SDP._multiple: # single header
                     result += '\r\n' + k + '=' + str(self[k])
@@ -100,7 +104,7 @@ class SDP(attrs):
                     result+= '\r\n' + 'a=fmtp:'+ str(f.pt) + ' ' + f.params
             return result
         def dup(self): # use this method instead of SDP.media(str(m)) to duplicate m. Otherwise, fmt will be incomplete
-            result = SDP.media(media=self.media, port=self.port, proto=self.proto, fmt=map(lambda f: attrs(pt=f.pt, name=f.name, rate=f.rate, params=f.params), self.fmt))
+            result = SDP.media(media=self.media, port=self.port, proto=self.proto, direction=self.direction, fmt=map(lambda f: attrs(pt=f.pt, name=f.name, rate=f.rate, params=f.params), self.fmt))
             for k in filter(lambda x: x in self, 'icbka'): 
                 result[k] = self[k][:] if isinstance(self[k], list) else self[k]
             return result
@@ -134,6 +138,13 @@ class SDP(attrs):
                     params = rest
                     for f in filter(lambda x: str(x.pt) == str(pt), obj.fmt):
                         f.params = params
+                # @implements RFC4566 P27L9-P28L4 
+                elif k == 'a' and v.startswith('sendonly'):
+                    obj.direction = 'sendonly'
+                elif k == 'a' and v.startswith('recvonly'):
+                    obj.direction = 'recvonly'
+                elif k == 'a' and v.startswith('sendrecv'):
+                    obj.direction = 'sendrecv'
                 else:
                     obj[k] = (k in SDP._multiple and ((k in obj) and (obj[k]+[v]) or [v])) or v 
             else:          # global
@@ -175,8 +186,29 @@ a=rtpmap:99 h263-1998/90000\r
 a=rtpmap:102 h264/90000\r
 a=fmtp:102 profile-level-id=428014\r
 '''
+    s_parsed = '''v=0\r
+o=jdoe 2890844526 2890842807 IN IP4 10.47.16.5\r
+s=SDP Seminar\r
+i=A Seminar on the session description protocol\r
+u=http://www.example.com/seminars/sdp.pdf\r
+e=j.doe@example.com (Jane Doe)\r
+c=IN IP4 224.2.17.12/127\r
+t=2873397496 2873404696\r
+m=audio 10800 RTP/AVP 0 101 111\r
+a=rtpmap:0 pcmu/8000\r
+a=rtpmap:101 telephone-event/8000\r
+a=fmtp:101 0-11\r
+a=rtpmap:111 speex/16000\r
+a=fmtp:111 vbr=on\r
+m=video 10802 RTP/AVP 99 102\r
+a=recvonly\r
+a=rtpmap:99 h263-1998/90000\r
+a=rtpmap:102 h264/90000\r
+a=fmtp:102 profile-level-id=428014\r
+'''
+    
     sdp = SDP(s)
-    assert str(sdp) == s
+    assert str(sdp) == s_parsed
     
 if __name__ == '__main__':
     import doctest

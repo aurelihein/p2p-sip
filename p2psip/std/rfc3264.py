@@ -14,13 +14,13 @@ from std.rfc3264 import createOffer, createAnswer
 >>> audio = SDP.media(media='audio', port='9000')
 >>> audio.fmt = [format(pt=0, name='PCMU', rate=8000), format(pt=8, name='PCMA', rate=8000)]
 >>> video = SDP.media(media='video', port='9002')
->>> video.fmt = [format(pt=31, name='H261', rate=90000)] 
+>>> video.fmt = [format(pt=102, name='H264', rate=90000),format(pt=103, name='H264', rate=90000, params='packetization-mode=1')] 
 >>> offer = createOffer([audio, video])
 >>>
 >>> offer.o.sessionid = offer.o.version = 1192000146 # so that testing doesn't depend on time
 >>> offer.o.address = '192.168.1.66'                    # or IP address
 >>> print str(offer).replace('\\r', '\\\\r').replace('\\n', '\\\\n')
-v=0\\r\\no=- 1192000146 1192000146 IN IP4 192.168.1.66\\r\\ns=-\\r\\nt=0 0\\r\\nm=audio 9000 RTP/AVP 0 8\\r\\na=rtpmap:0 PCMU/8000\\r\\na=rtpmap:8 PCMA/8000\\r\\nm=video 9002 RTP/AVP 31\\r\\na=rtpmap:31 H261/90000\\r\\n
+v=0\\r\\no=- 1192000146 1192000146 IN IP4 192.168.1.66\\r\\ns=-\\r\\nt=0 0\\r\\nm=audio 9000 RTP/AVP 0 8\\r\\na=rtpmap:0 PCMU/8000\\r\\na=rtpmap:8 PCMA/8000\\r\\nm=video 9002 RTP/AVP 102 103\\r\\na=rtpmap:102 H264/90000\\r\\na=rtpmap:103 H264/90000\\r\\na=fmtp:103 packetization-mode=1\\r\\n
 
 When the offer is received by the answerer, it can use the following code to generate
 the answer. Suppose the answerer wants to support PCMU and GSM audio and no video.
@@ -34,13 +34,33 @@ from std.rfc3264 import createAnswer
 >>> answer.o.sessionid = answer.o.version = 1192000146 
 >>> answer.o.address = '192.168.1.66'
 >>> print str(answer).replace('\\r', '\\\\r').replace('\\n', '\\\\n')
-v=0\\r\\no=- 1192000146 1192000146 IN IP4 192.168.1.66\\r\\ns=-\\r\\nt=0 0\\r\\nm=audio 8020 RTP/AVP 0\\r\\na=rtpmap:0 PCMU/8000\\r\\nm=video 0 RTP/AVP 31\\r\\na=rtpmap:31 H261/90000\\r\\n
+v=0\\r\\no=- 1192000146 1192000146 IN IP4 192.168.1.66\\r\\ns=-\\r\\nt=0 0\\r\\nm=audio 8020 RTP/AVP 0\\r\\na=rtpmap:0 PCMU/8000\\r\\nm=video 0 RTP/AVP 102 103\\r\\na=rtpmap:102 H264/90000\\r\\na=rtpmap:103 H264/90000\\r\\na=fmtp:103 packetization-mode=1\\r\\n
 
 Suppose the offerer wants to change the offer (e.g., using SIP re-INVITE) by removing
 video from the offer; it should reuse the previous offer as follows:
 
+
+>>> video.fmt = [format(pt=102, name='H264', rate=90000)]  # for known payload types, description is optional
+>>> answer = createAnswer([audio, video], offer)
+>>> answer.o.sessionid = answer.o.version = 1192000146 
+>>> answer.o.address = '192.168.1.66'
+>>> print str(answer).replace('\\r', '\\\\r').replace('\\n', '\\\\n')
+v=0\\r\\no=- 1192000146 1192000146 IN IP4 192.168.1.66\\r\\ns=-\\r\\nt=0 0\\r\\nm=audio 8020 RTP/AVP 0\\r\\na=rtpmap:0 PCMU/8000\\r\\nm=video 9002 RTP/AVP 102\\r\\na=rtpmap:102 H264/90000\\r\\n
+
+Testing if we answer the good H264 depending of the parameters, we should check different case : packetization-mode=1 and profile-level-id(TODO)
+
+>>> video.direction = 'recvonly'  # for known payload types, description is optional
+>>> answer = createAnswer([audio, video], offer)
+>>> answer.o.sessionid = answer.o.version = 1192000146 
+>>> answer.o.address = '192.168.1.66'
+>>> print str(answer).replace('\\r', '\\\\r').replace('\\n', '\\\\n')
+v=0\\r\\no=- 1192000146 1192000146 IN IP4 192.168.1.66\\r\\ns=-\\r\\nt=0 0\\r\\nm=audio 8020 RTP/AVP 0\\r\\na=rtpmap:0 PCMU/8000\\r\\nm=video 9002 RTP/AVP 102\\r\\na=sendonly\\r\\na=rtpmap:102 H264/90000\\r\\n
+
+Testing if when distant ask to recvonly we answer with sendonly
+
 newOffer = createOffer([audio], offer)
 '''
+#a=fmtp:103 packetization-mode=1
 
 # @implements RFC3264 P1L27-P1L36
 # @implements RFC3264 P3L18-P3L21
@@ -86,6 +106,10 @@ def createAnswer(streams, offer, **kwargs):
             if streams[i].media == your.media: # match the first stream in streams
                 my = streams[i].dup() # found, hence
                 del streams[i]  #  remove from streams so that we don't match again for another m=
+                if my.direction == 'sendonly' :
+                    my.direction = 'recvonly'
+                elif my.direction == 'recvonly' :
+                    my.direction = 'sendonly'
                 found = []
                 for fy in your.fmt:  # all offered formats, find the matching pairs
                     for fm in my.fmt:# the preference order is from offer, hence do for fy, then for fm.
