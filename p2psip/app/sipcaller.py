@@ -283,6 +283,7 @@ class Stacks(object):
     def receivedRequest(self, ua, request, stack):
         if not self._proxyToApp('receivedRequest', ua, request):
             method = 'received' + request.method[:1].upper() + request.method[1:].lower()
+            logger.debug('receivedRequest : %s', method)
             if hasattr(self.app, method) and callable(eval('self.app.' + method)): eval('self.app.' + method)(ua, request)
             elif request.method != 'ACK': ua.sendResponse(501, 'Method Not Implemented') 
 
@@ -428,6 +429,11 @@ class Caller(object):
             logger.info('received: %s', request.body)
             if options.auto_respond:
                 ua.sendResponse(ua.createResponse(options.auto_respond, 'OK' if options.auto_respond >= 200 and options.auto_respond < 300 else 'Decline'))
+    
+    # following callbacks are invoked by Stacks when OPTIONS request is received, often used as ping
+    def receivedOptions(self, ua, request):
+			logger.info('received: %s', request.body)
+			ua.sendResponse(ua.createResponse(200, 'OK'))
             
     def receivedInvite(self, ua, request):
         if not self.options.listen:
