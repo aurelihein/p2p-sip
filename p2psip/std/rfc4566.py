@@ -95,7 +95,9 @@ class SDP(attrs):
                         result += '\r\n' + k + '=' + str(v) 
             for f in self.fmt:
                 if f.name:
-                    result += '\r\n' + 'a=rtpmap:' + str(f.pt) + ' ' + f.name + '/' + str(f.rate) + (f.params and ('/'+f.params) or '')
+                    result += '\r\n' + 'a=rtpmap:' + str(f.pt) + ' ' + f.name + '/' + str(f.rate)
+                if f.params:
+                    result+= '\r\n' + 'a=fmtp:'+ str(f.pt) + ' ' + f.params
             return result
         def dup(self): # use this method instead of SDP.media(str(m)) to duplicate m. Otherwise, fmt will be incomplete
             result = SDP.media(media=self.media, port=self.port, proto=self.proto, fmt=map(lambda f: attrs(pt=f.pt, name=f.name, rate=f.rate, params=f.params), self.fmt))
@@ -127,6 +129,11 @@ class SDP(attrs):
                     rate, sep, params = rest.partition('/')
                     for f in filter(lambda x: str(x.pt) == str(pt), obj.fmt):
                         f.name = name; f.rate = int(rate); f.params = params or None
+                elif k == 'a' and v.startswith('fmtp:'):
+                    pt, rest = v[5:].split(' ', 1)
+                    params = rest
+                    for f in filter(lambda x: str(x.pt) == str(pt), obj.fmt):
+                        f.params = params
                 else:
                     obj[k] = (k in SDP._multiple and ((k in obj) and (obj[k]+[v]) or [v])) or v 
             else:          # global
@@ -155,10 +162,18 @@ u=http://www.example.com/seminars/sdp.pdf\r
 e=j.doe@example.com (Jane Doe)\r
 c=IN IP4 224.2.17.12/127\r
 t=2873397496 2873404696\r
+m=audio 10800 RTP/AVP 0 101 111\r
+a=sendrecv\r
+a=rtpmap:0 pcmu/8000\r
+a=rtpmap:101 telephone-event/8000\r
+a=fmtp:101 0-11\r
+a=rtpmap:111 speex/16000\r
+a=fmtp:111 vbr=on\r
+m=video 10802 RTP/AVP 99 102\r
 a=recvonly\r
-m=audio 49170 RTP/AVP 0\r
-m=video 51372 RTP/AVP 99\r
 a=rtpmap:99 h263-1998/90000\r
+a=rtpmap:102 h264/90000\r
+a=fmtp:102 profile-level-id=428014\r
 '''
     sdp = SDP(s)
     assert str(sdp) == s
