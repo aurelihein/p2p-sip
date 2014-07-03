@@ -146,7 +146,7 @@ if __name__ == '__main__': # parse command line options, and set the high level 
     group2.add_option('',   '--strict-route',dest='strict_route', default=False, action='store_true', help='use strict routing instead of default loose routing when proxy option is specified')
     group2.add_option('',   '--to',      dest='to', default=None, help='the target SIP address, e.g., \'"Henry Sinnreich" <sip:henry@iptel.org>\'. This is mandatory')
     group2.add_option('',   '--uri',     dest='uri', default=None, help='the target request-URI, e.g., "sip:henry@iptel.org". Default is to derive from the --to option')
-    group2.add_option('',   '--listen',  dest='listen', default=True, action='store_true', help='enable listen mode without REGISTER and wait for incoming INVITE or MESSAGE (default enabled)')
+    group2.add_option('',   '--listen',  dest='listen', default=False, action='store_true', help='enable listen mode without REGISTER and wait for incoming INVITE or MESSAGE (default enabled)')
     group2.add_option('',   '--register',dest='register',default=False, action='store_true', help='enable listen mode to send REGISTER to SIP server and wait for incoming INVITE or MESSAGE')
     group2.add_option('',   '--register-interval', dest='register_interval', default=3600, type='int', help='registration refresh interval in seconds. Default is 3600')
     group2.add_option('',   '--retry-interval', dest='retry_interval', default=60, type='int', help='retry interval in seconds to re-try if register or subscribe fails. Default is 60')
@@ -159,7 +159,9 @@ if __name__ == '__main__': # parse command line options, and set the high level 
     group4 = OptionGroup(parser, 'Media', 'Use these options for media configuration')
     group4.add_option('',   '--no-sdp', dest='has_sdp',default=True, action='store_false', help='disable sending SDP in outbound INVITE')
     group4.add_option('',   '--no-audio',dest='audio',default=True, action='store_false', help='disable audio in a call')
-    group4.add_option('',   '--streams-loopback',dest='streams_loopback',default=False, action='store_true', help='enable audio loopback mode where this agent sends back the received audio to the other end')
+    group4.add_option('',   '-C',dest='video_capture_capability',default=False, action='store_true', help='Enable capture capability in a call')
+    group4.add_option('',   '-D',dest='video_display_capability',default=False, action='store_true', help='Enable display capability in a call')
+    group4.add_option('',   '--streams-loopback',dest='streams_loopback',default=False, action='store_true', help='enable audio/video loopback mode where this agent sends back the received audio to the other end')
     parser.add_option_group(group4)
     
     (options, args) = parser.parse_args()
@@ -496,8 +498,19 @@ class Call(UA):
         video.fmt.append( rfc4566.attrs(pt=102, name='H264', rate=90000) )
         video.fmt.append( rfc4566.attrs(pt=103, name='VP8', rate=90000) )
         video.fmt.append( rfc4566.attrs(pt=104, name='H264', rate=90000,fmt_params="packetization-mode=1"))
+        if self.options.video_capture_capability == False and self.options.video_display_capability == False:
+            video = None
+        elif self.options.video_capture_capability == False and self.options.video_display_capability == True:
+            video.direction = 'recvonly'
+        elif self.options.video_capture_capability == True and self.options.video_display_capability == False:
+            video.direction = 'sendonly'
+        else:
+            video.direction = 'sendrecv'
         #TODO check queue use
-        self._audio_and_video_streams, self._queue = [audio, video], []
+        if not video == None :
+            self._audio_and_video_streams, self._queue = [audio, video], []
+        else :
+            self._audio_and_video_streams, self._queue = [audio], []
         
     def close(self):
         logger.debug('closing the call in state=%r', self.state)

@@ -114,14 +114,16 @@ def createAnswer(streams, offer, **kwargs):
             if streams[i].media == your.media: # match the first stream in streams
                 my = streams[i].dup() # found, hence
                 del streams[i]  #  remove from streams so that we don't match again for another m=
-                if my.direction == 'sendonly' :
-                    my.direction = 'recvonly'
-                elif my.direction == 'recvonly' :
-                    my.direction = 'sendonly'
                 if your.direction == 'recvonly' :
-                    my.direction = 'sendonly'
+                    if not my.direction == 'recvonly' :
+                        my.direction = 'sendonly'
+                    else :
+                        my.direction = 'inactive'
                 if your.direction == 'sendonly' :
-                    my.direction = 'recvonly'
+                    if not my.direction == 'sendonly' :
+                        my.direction = 'recvonly'
+                    else :
+                        my.direction = 'inactive'
                 found = []
                 for fy in your.fmt:  # all offered formats, find the matching pairs
                     for fm in my.fmt:# the preference order is from offer, hence do for fy, then for fm.

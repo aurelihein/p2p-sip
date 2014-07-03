@@ -67,12 +67,12 @@ class RTP(object):
         Alternatively, if value is specified, then construct the RTP packet by parsing the 
         value.'''
         csrcs = csrcs or []
-        if not value: # construct using components.
+        if not value or ord(value[0]) & 0xC0 != 0x80 : # construct using components.
             self.pt, self.seq, self.ts, self.ssrc, self.csrcs, self.marker, self.extn, self.payload = \
             pt, seq, ts, ssrc, csrcs, marker, extn, payload
         else: # parse the packet.
             if len(value) < 12: raise ValueError, 'RTP packet must be at least 12 bytes'
-            if ord(value[0]) & 0xC0 != 0x80: raise ValueError, 'RTP version must be 2'
+            #if ord(value[0]) & 0xC0 != 0x80: raise ValueError, 'RTP version must be 2'
             px, mpt, self.seq, self.ts, self.ssrc = struct.unpack('!BBHII', value[:12])
             self.marker, self.pt = (mpt & 0x80 and True or False), (mpt & 0x7f)
             self.csrcs, value = ([] if (px & 0x0f == 0) else list(struct.unpack('!'+'I'*(px&0x0f), value[12:12+(px&0x0f)*4]))), value[12+(px & 0x0f)*4:]
