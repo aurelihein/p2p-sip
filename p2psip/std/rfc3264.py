@@ -14,13 +14,13 @@ from std.rfc3264 import createOffer, createAnswer
 >>> audio = SDP.media(media='audio', port='9000')
 >>> audio.fmt = [format(pt=0, name='PCMU', rate=8000), format(pt=8, name='PCMA', rate=8000)]
 >>> video = SDP.media(media='video', port='9002')
->>> video.fmt = [format(pt=102, name='H264', rate=90000),format(pt=103, name='H264', rate=90000, params='packetization-mode=1')] 
+>>> video.fmt = [format(pt=102, name='H264', rate=90000, fmtp_params='sprop-parameter-sets=Z0KAHpZSgWh7IA==,aMkjUg=='),format(pt=103, name='H264', rate=90000, fmtp_params='packetization-mode=1')] 
 >>> offer = createOffer([audio, video])
 >>>
 >>> offer.o.sessionid = offer.o.version = 1192000146 # so that testing doesn't depend on time
 >>> offer.o.address = '192.168.1.66'                    # or IP address
 >>> print str(offer).replace('\\r', '\\\\r').replace('\\n', '\\\\n')
-v=0\\r\\no=- 1192000146 1192000146 IN IP4 192.168.1.66\\r\\ns=-\\r\\nt=0 0\\r\\nm=audio 9000 RTP/AVP 0 8\\r\\na=rtpmap:0 PCMU/8000\\r\\na=rtpmap:8 PCMA/8000\\r\\nm=video 9002 RTP/AVP 102 103\\r\\na=rtpmap:102 H264/90000\\r\\na=rtpmap:103 H264/90000\\r\\na=fmtp:103 packetization-mode=1\\r\\n
+v=0\\r\\no=- 1192000146 1192000146 IN IP4 192.168.1.66\\r\\ns=-\\r\\nt=0 0\\r\\nm=audio 9000 RTP/AVP 0 8\\r\\na=rtpmap:0 PCMU/8000\\r\\na=rtpmap:8 PCMA/8000\\r\\nm=video 9002 RTP/AVP 102 103\\r\\na=rtpmap:102 H264/90000\\r\\na=fmtp:102 sprop-parameter-sets=Z0KAHpZSgWh7IA==,aMkjUg==\\r\\na=rtpmap:103 H264/90000\\r\\na=fmtp:103 packetization-mode=1\\r\\n
 
 When the offer is received by the answerer, it can use the following code to generate
 the answer. Suppose the answerer wants to support PCMU and GSM audio and no video.
@@ -34,27 +34,35 @@ from std.rfc3264 import createAnswer
 >>> answer.o.sessionid = answer.o.version = 1192000146 
 >>> answer.o.address = '192.168.1.66'
 >>> print str(answer).replace('\\r', '\\\\r').replace('\\n', '\\\\n')
-v=0\\r\\no=- 1192000146 1192000146 IN IP4 192.168.1.66\\r\\ns=-\\r\\nt=0 0\\r\\nm=audio 8020 RTP/AVP 0\\r\\na=rtpmap:0 PCMU/8000\\r\\nm=video 0 RTP/AVP 102 103\\r\\na=rtpmap:102 H264/90000\\r\\na=rtpmap:103 H264/90000\\r\\na=fmtp:103 packetization-mode=1\\r\\n
+v=0\\r\\no=- 1192000146 1192000146 IN IP4 192.168.1.66\\r\\ns=-\\r\\nt=0 0\\r\\nm=audio 8020 RTP/AVP 0\\r\\na=rtpmap:0 PCMU/8000\\r\\nm=video 0 RTP/AVP 102 103\\r\\na=rtpmap:102 H264/90000\\r\\na=fmtp:102 sprop-parameter-sets=Z0KAHpZSgWh7IA==,aMkjUg==\\r\\na=rtpmap:103 H264/90000\\r\\na=fmtp:103 packetization-mode=1\\r\\n
 
 Suppose the offerer wants to change the offer (e.g., using SIP re-INVITE) by removing
 video from the offer; it should reuse the previous offer as follows:
 
 
->>> video.fmt = [format(pt=102, name='H264', rate=90000)]  # for known payload types, description is optional
+>>> video.fmt = [format(pt=164, name='H264', rate=90000)]  # for known payload types, description is optional
 >>> answer = createAnswer([audio, video], offer)
 >>> answer.o.sessionid = answer.o.version = 1192000146 
 >>> answer.o.address = '192.168.1.66'
 >>> print str(answer).replace('\\r', '\\\\r').replace('\\n', '\\\\n')
-v=0\\r\\no=- 1192000146 1192000146 IN IP4 192.168.1.66\\r\\ns=-\\r\\nt=0 0\\r\\nm=audio 8020 RTP/AVP 0\\r\\na=rtpmap:0 PCMU/8000\\r\\nm=video 9002 RTP/AVP 102\\r\\na=rtpmap:102 H264/90000\\r\\n
+v=0\\r\\no=- 1192000146 1192000146 IN IP4 192.168.1.66\\r\\ns=-\\r\\nt=0 0\\r\\nm=audio 8020 RTP/AVP 0\\r\\na=rtpmap:0 PCMU/8000\\r\\nm=video 9002 RTP/AVP 164\\r\\na=rtpmap:164 H264/90000\\r\\n
 
-Testing if we answer the good H264 depending of the parameters, we should check different case : packetization-mode=1 and profile-level-id(TODO)
+Testing codec pt adaptation
 
->>> video.direction = 'recvonly'  # for known payload types, description is optional
+>>> video_recvonly = SDP.media(media='video', port='9002')
+>>> video_recvonly.fmt = [format(pt=102, name='H264', rate=90000, fmtp_params='sprop-parameter-sets=Z0KAHpZSgWh7IA==,aMkjUg=='),format(pt=103, name='H264', rate=90000, fmtp_params='packetization-mode=1')] 
+>>> video_recvonly.direction = 'recvonly'  # for known payload types, description is optional 
+>>> offer = createOffer([audio, video_recvonly])
+>>> offer.o.sessionid = offer.o.version = 1192000146 # so that testing doesn't depend on time
+>>> offer.o.address = '192.168.1.66'                    # or IP address
+>>> print str(offer).replace('\\r', '\\\\r').replace('\\n', '\\\\n')
+v=0\\r\\no=- 1192000146 1192000146 IN IP4 192.168.1.66\\r\\ns=-\\r\\nt=0 0\\r\\nm=audio 8020 RTP/AVP 0 3\\r\\nm=video 9002 RTP/AVP 102 103\\r\\na=recvonly\\r\\na=rtpmap:102 H264/90000\\r\\na=fmtp:102 sprop-parameter-sets=Z0KAHpZSgWh7IA==,aMkjUg==\\r\\na=rtpmap:103 H264/90000\\r\\na=fmtp:103 packetization-mode=1\\r\\n
+
 >>> answer = createAnswer([audio, video], offer)
 >>> answer.o.sessionid = answer.o.version = 1192000146 
 >>> answer.o.address = '192.168.1.66'
 >>> print str(answer).replace('\\r', '\\\\r').replace('\\n', '\\\\n')
-v=0\\r\\no=- 1192000146 1192000146 IN IP4 192.168.1.66\\r\\ns=-\\r\\nt=0 0\\r\\nm=audio 8020 RTP/AVP 0\\r\\na=rtpmap:0 PCMU/8000\\r\\nm=video 9002 RTP/AVP 102\\r\\na=sendonly\\r\\na=rtpmap:102 H264/90000\\r\\n
+v=0\\r\\no=- 1192000146 1192000146 IN IP4 192.168.1.66\\r\\ns=-\\r\\nt=0 0\\r\\nm=audio 8020 RTP/AVP 0 3\\r\\nm=video 9002 RTP/AVP 102 103\\r\\na=sendonly\\r\\na=rtpmap:102 H264/90000\\r\\na=fmtp:102 sprop-parameter-sets=Z0KAHpZSgWh7IA==,aMkjUg==\\r\\na=rtpmap:103 H264/90000\\r\\na=fmtp:103 packetization-mode=1\\r\\n
 
 Testing if when distant ask to recvonly we answer with sendonly
 
@@ -110,6 +118,10 @@ def createAnswer(streams, offer, **kwargs):
                     my.direction = 'recvonly'
                 elif my.direction == 'recvonly' :
                     my.direction = 'sendonly'
+                if your.direction == 'recvonly' :
+                    my.direction = 'sendonly'
+                if your.direction == 'sendonly' :
+                    my.direction = 'recvonly'
                 found = []
                 for fy in your.fmt:  # all offered formats, find the matching pairs
                     for fm in my.fmt:# the preference order is from offer, hence do for fy, then for fm.

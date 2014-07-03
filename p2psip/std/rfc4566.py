@@ -101,10 +101,12 @@ class SDP(attrs):
                 if f.name:
                     result += '\r\n' + 'a=rtpmap:' + str(f.pt) + ' ' + f.name + '/' + str(f.rate)
                 if f.params:
-                    result+= '\r\n' + 'a=fmtp:'+ str(f.pt) + ' ' + f.params
+                    result += '/' + str(f.params)
+                if f.fmtp_params:
+                    result+= '\r\n' + 'a=fmtp:'+ str(f.pt) + ' ' + f.fmtp_params
             return result
         def dup(self): # use this method instead of SDP.media(str(m)) to duplicate m. Otherwise, fmt will be incomplete
-            result = SDP.media(media=self.media, port=self.port, proto=self.proto, direction=self.direction, fmt=map(lambda f: attrs(pt=f.pt, name=f.name, rate=f.rate, params=f.params), self.fmt))
+            result = SDP.media(media=self.media, port=self.port, proto=self.proto, direction=self.direction, fmt=map(lambda f: attrs(pt=f.pt, name=f.name, rate=f.rate, params=f.params, fmtp_params=f.fmtp_params), self.fmt))
             for k in filter(lambda x: x in self, 'icbka'): 
                 result[k] = self[k][:] if isinstance(self[k], list) else self[k]
             return result
@@ -135,9 +137,9 @@ class SDP(attrs):
                         f.name = name; f.rate = int(rate); f.params = params or None
                 elif k == 'a' and v.startswith('fmtp:'):
                     pt, rest = v[5:].split(' ', 1)
-                    params = rest
+                    fmtp_params = rest
                     for f in filter(lambda x: str(x.pt) == str(pt), obj.fmt):
-                        f.params = params
+                        f.fmtp_params = fmtp_params
                 # @implements RFC4566 P27L9-P28L4 
                 elif k == 'a' and v.startswith('sendonly'):
                     obj.direction = 'sendonly'
@@ -175,7 +177,7 @@ c=IN IP4 224.2.17.12/127\r
 t=2873397496 2873404696\r
 m=audio 10800 RTP/AVP 0 101 111\r
 a=sendrecv\r
-a=rtpmap:0 pcmu/8000\r
+a=rtpmap:0 pcmu/8000/1\r
 a=rtpmap:101 telephone-event/8000\r
 a=fmtp:101 0-11\r
 a=rtpmap:111 speex/16000\r
@@ -195,7 +197,7 @@ e=j.doe@example.com (Jane Doe)\r
 c=IN IP4 224.2.17.12/127\r
 t=2873397496 2873404696\r
 m=audio 10800 RTP/AVP 0 101 111\r
-a=rtpmap:0 pcmu/8000\r
+a=rtpmap:0 pcmu/8000/1\r
 a=rtpmap:101 telephone-event/8000\r
 a=fmtp:101 0-11\r
 a=rtpmap:111 speex/16000\r
@@ -207,7 +209,13 @@ a=rtpmap:102 h264/90000\r
 a=fmtp:102 profile-level-id=428014\r
 '''
     
+    
+#a=rtpmap:99 h263-1998/90000\r
+#a=rtpmap:102 h264/90000\r
+#a=fmtp:102 profile-level-id=428014\r
     sdp = SDP(s)
+    print ("SDP:")
+    print (sdp)
     assert str(sdp) == s_parsed
     
 if __name__ == '__main__':
